@@ -1,0 +1,14 @@
+{
+  "views": {
+    "home": {
+      "helloWorld": "Hello world"
+    },
+    "about": {
+      "thisIsThe": "This is the about page"
+    }
+  },
+  "app": {
+    "home": "Home",
+    "about": "About"
+  }
+}

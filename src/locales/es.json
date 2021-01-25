@@ -1,0 +1,14 @@
+{
+  "views": {
+    "home": {
+      "helloWorld": "Hola mundo"
+    },
+    "about": {
+      "thisIsThe": "Esta es la pagina acerca de"
+    }
+  },
+  "app": {
+    "home": "Inicio",
+    "about": "Acerca de"
+  }
+}
