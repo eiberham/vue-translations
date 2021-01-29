@@ -25,3 +25,5 @@ And also an application called babel edit that makes managing our translations e
 
 vscode's i18n-ally extension is a helpful tool as well to visualize the current translations in our vue templates so using it is a good idea.
 
+Google calendar integration reference vid : https://www.youtube.com/watch?v=Bj15-6rBHQw
+

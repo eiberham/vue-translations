@@ -4,13 +4,19 @@
 
     <h1>{{ $t('views.home.helloWorld') }}</h1>
 
-    <div v-if="!signedin" id="glogin" class="g-signin2" :data-onsuccess="onSignIn" :data-onfailure="onFailure" data-theme="dark"></div>
+    <button class="button" v-if="!signedin" type="button" @click="auth">Sign In</button>
     <a v-else href="#" @click="signOut">Sign out</a> 
 
     <section v-if="signedin" class="events">
-      <pre>
-        {{ events }}
-      </pre>
+      <ul>
+        <li v-for="event in events" :key="event.id" style="list-style: none; margin: 8px 0; background: #f2f2f2; border-radius: 8px; padding: 1rem;">
+          <div>
+            <strong>{{ event.summary }}</strong>
+            <p>{{ event.description }}</p>
+            <span>from: {{ new Date(event.start.dateTime).toISOString() }} to {{ new Date(event.end.dateTime).toISOString() }}</span>
+          </div>
+        </li>
+      </ul>
     </section>
   </div>
 </template>
@@ -25,41 +31,38 @@
       }
     },
     mounted: function(){
-      gapi.load('client:auth2', () => {
-            const auth2 = gapi.auth2.init({
-                client_id: '611435266062-0oqhm1gf59fl3paeg5ru18fbkhcqn44d.apps.googleusercontent.com',
-                cookiepolicy: 'single_host_origin',
-                scope: 'profile email'
-            });
-            const element = document.getElementById('glogin');
-            auth2.attachClickHandler(element, {}, this.onSignIn, this.onFailure);
-
+      gapi.load('client', () => {
             gapi.client.init({
+              apiKey: 'AIzaSyCyO0fSFRTQ62NxiLoAPBcbUpvLE5XWToA',
               clientId: '611435266062-0oqhm1gf59fl3paeg5ru18fbkhcqn44d.apps.googleusercontent.com',
               discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"],
-              scope: 'https://www.googleapis.com/auth/calendar'
+              scope: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events'
             });
+
+            gapi.client.load('calendar', 'v3', () => console.log('calendar ready'));
       });
     },
     methods: {
-      onSignIn: function(googleUser) {
-        // Useful data for your client-side scripts:
-        let id_token = googleUser.getAuthResponse().id_token;
+      auth: async function(){
+        const googleAuth = gapi.auth2.getAuthInstance();
+        const googleUser = await googleAuth.signIn();
+
         const profile = googleUser.getBasicProfile();
 
-        console.log("id: "          + profile.getId()); // Don't send this directly to your server!
+        console.log("id: "          + profile.getId());
         console.log('full name: '   + profile.getName());
         console.log('given name: '  + profile.getGivenName());
         console.log('family name: ' + profile.getFamilyName());
         console.log("image url: "   + profile.getImageUrl());
         console.log("email: "       + profile.getEmail());
 
-        // The id token you need to pass to your backend:
-        id_token = googleUser.getAuthResponse().id_token;
-        console.log("id token: " + id_token);
+        const token = googleUser.getAuthResponse().id_token;
+        console.log("token: ", token);
+
         this.signedin = true;
 
         this.getCalendarEvents();
+
       },
       signOut: function() {
         const auth2 = gapi.auth2.getAuthInstance();
@@ -67,9 +70,6 @@
           this.signedin = false;
           console.log('User signed out.');
         });
-      },
-      onFailure: function(_error) {
-        console.error(_error);
       },
       getCalendarEvents: function() {
         gapi.client.calendar.events.list({
