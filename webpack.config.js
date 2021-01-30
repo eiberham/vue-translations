@@ -15,6 +15,7 @@ module.exports = {
         path: path.resolve(__dirname, "dist"),
         chunkFilename: "[name].[contenthash:8].js",
     },
+    devtool: "source-map",
     module: {
         rules: [
             {

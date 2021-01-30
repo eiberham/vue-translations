@@ -3,11 +3,12 @@
     <!-- <img class="logo" src="../assets/logo.png" alt="logo" /> -->
 
     <h1>{{ $t('views.home.helloWorld') }}</h1>
-
-    <button class="button" v-if="!signedin" type="button" @click="auth">Sign In</button>
+    <!-- <button type="button" @click="signOut">Sign out</button> -->
+    <!-- <button v-if="!signedin" class="button" type="button" @click="authorize">Authorize</button> -->
+    <button class="button" v-if="!signedIn" type="button" @click="signIn">Sign In</button>
     <a v-else href="#" @click="signOut">Sign out</a> 
 
-    <section v-if="signedin" class="events">
+    <section v-if="signedIn" class="events">
       <ul>
         <li v-for="event in events" :key="event.id" style="list-style: none; margin: 8px 0; background: #f2f2f2; border-radius: 8px; padding: 1rem;">
           <div>
@@ -26,8 +27,9 @@
     components: {},
     data: function(){
       return {
-        signedin: false,
-        events: []
+        signedIn: false,
+        events: [],
+        syncInterval: 1000 * 30,
       }
     },
     mounted: function(){
@@ -43,7 +45,21 @@
       });
     },
     methods: {
-      auth: async function(){
+      authorize: function(){
+        gapi.auth.authorize(
+          {
+            'client_id': '611435266062-0oqhm1gf59fl3paeg5ru18fbkhcqn44d.apps.googleusercontent.com',
+            'scope': 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
+            'immediate': true
+          }, (done) => {
+            console.log("authed: ", done)
+            gapi.client.load('calendar', 'v3', () => console.log('calendar ready'));
+          });
+      },
+      /**
+       * Signs in into google account.
+       */
+      signIn: async function (){
         const googleAuth = gapi.auth2.getAuthInstance();
         const googleUser = await googleAuth.signIn();
 
@@ -59,32 +75,87 @@
         const token = googleUser.getAuthResponse().id_token;
         console.log("token: ", token);
 
-        this.signedin = true;
+        this.signedIn = true;
 
-        this.getCalendarEvents();
+        const eventParams = {
+          calendarId: 'primary',
+          timeMin: (new Date()).toISOString(),
+          // timeMax: (new Date()).toISOString(),
+          showDeleted: false,
+          singleEvents: true,
+          maxResults: 10,
+        };
+
+        this.getSyncEvents(eventParams, this.syncInterval); //(this.syncInterval);
 
       },
+      /**
+       * Signs out from google account.
+       */
       signOut: function() {
         const auth2 = gapi.auth2.getAuthInstance();
         auth2.signOut().then(() => {
-          this.signedin = false;
+          this.signedIn = false;
           console.log('User signed out.');
         });
       },
-      getCalendarEvents: function() {
-        gapi.client.calendar.events.list({
-          'calendarId': 'primary',
-          'timeMin': (new Date()).toISOString(),
-          'showDeleted': false,
-          'singleEvents': true,
-          'maxResults': 10,
-          'orderBy': 'startTime'
-        }).then((response) => {
-          const events = response.result.items;
-          this.events = events;
+      /**
+       * 
+       * 
+       */
+      getSyncEvents: async function(eventParams, syncInterval) {
+        // debugger;
+        const response = await this.getCalendarEvents(eventParams);
+        this.events = response.result.items;
+        if (response.result.nextSyncToken) this.setSyncToken(response.result.nextSyncToken);
+
+        // The result of this list request contain only entries that have changed.
+        const getIncrementalSync = async () => {
+          try {
+            const syncToken = this.getSyncToken();
+            const response = await this.getCalendarEvents({
+              ...(syncToken) && { nextSyncToken: syncToken },
+              singleEvents: true,
+              maxResults: 10,
+            });
+            if (response.result.nextSyncToken) this.setSyncToken(response.result.nextSyncToken);
+          } catch(error) {
+            clearInterval(intervalId);
+            this.getSyncEvents(eventParams, syncInterval);
+          } 
+        };
+
+        const intervalId = setInterval(getIncrementalSync, syncInterval);
+      },
+      /**
+       * Retrieves calendar events in the specified range
+       * 
+       * @params {object} params the event params
+       */
+      getCalendarEvents: function(params) {
+        console.log("params: ", params);
+        return gapi.client.calendar.events.list({
+          ...params
         });
-      
-      }
+      },
+      /**
+       * Gets sync token from local storage
+       * 
+       * @returns {string} sync token stored previously
+       */
+      getSyncToken: function(){
+        const syncToken = window.localStorage.getItem('nextSyncToken');
+        return syncToken;
+      },
+      /**
+       * Persists sync token in local storage
+       * 
+       * @params {string} sync token to be persisted
+       */
+      setSyncToken: function(syncToken){
+        if (!syncToken) return;
+        window.localStorage.setItem('nextSyncToken', syncToken);
+      },
     }
   }
 </script>
