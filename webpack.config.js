@@ -73,7 +73,7 @@ module.exports = {
             template: path.resolve(__dirname, "public", "index.html"),
         }),
         new webpack.DefinePlugin({
-            'process.env': {}
+            'process.env': {},
         }),
     ],
     resolve: {

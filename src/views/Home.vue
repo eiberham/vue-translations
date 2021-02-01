@@ -3,8 +3,7 @@
     <!-- <img class="logo" src="../assets/logo.png" alt="logo" /> -->
 
     <h1>{{ $t('views.home.helloWorld') }}</h1>
-    <!-- <button type="button" @click="signOut">Sign out</button> -->
-    <!-- <button v-if="!signedin" class="button" type="button" @click="authorize">Authorize</button> -->
+    
     <button class="button" v-if="!signedIn" type="button" @click="signIn">Sign In</button>
     <a v-else href="#" @click="signOut">Sign out</a> 
 
@@ -32,8 +31,15 @@
         syncInterval: 1000 * 30,
       }
     },
-    mounted: function(){
-      gapi.load('client', () => {
+    mounted: function() {
+      this.init();
+    },
+    methods: {
+      /**
+       * Initializes the google api client library.
+       */
+      init: function() {
+        gapi.load('client', () => {
             gapi.client.init({
               apiKey: 'AIzaSyCyO0fSFRTQ62NxiLoAPBcbUpvLE5XWToA',
               clientId: '611435266062-0oqhm1gf59fl3paeg5ru18fbkhcqn44d.apps.googleusercontent.com',
@@ -42,55 +48,31 @@
             });
 
             gapi.client.load('calendar', 'v3', () => console.log('calendar ready'));
-      });
-    },
-    methods: {
-      authorize: function(){
-        gapi.auth.authorize(
-          {
-            'client_id': '611435266062-0oqhm1gf59fl3paeg5ru18fbkhcqn44d.apps.googleusercontent.com',
-            'scope': 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events',
-            'immediate': true
-          }, (done) => {
-            console.log("authed: ", done)
-            gapi.client.load('calendar', 'v3', () => console.log('calendar ready'));
-          });
+        });
       },
       /**
        * Signs in into google account.
        */
-      signIn: async function (){
+      signIn: async function() {
         const googleAuth = gapi.auth2.getAuthInstance();
         const googleUser = await googleAuth.signIn();
 
-        const profile = googleUser.getBasicProfile();
-
-        console.log("id: "          + profile.getId());
-        console.log('full name: '   + profile.getName());
-        console.log('given name: '  + profile.getGivenName());
-        console.log('family name: ' + profile.getFamilyName());
-        console.log("image url: "   + profile.getImageUrl());
-        console.log("email: "       + profile.getEmail());
-
         const token = googleUser.getAuthResponse().id_token;
-        console.log("token: ", token);
+        if (token) {
+          this.signedIn = true;
 
-        this.signedIn = true;
+          // The current date in simplified extended iso format
+          const date = new Date();
+          const timeMin = date.toISOString();
+          // Plus one day
+          const timeMax = new Date(date.setDate(date.getDate() + 2)).toISOString();
 
-        const eventParams = {
-          calendarId: 'primary',
-          timeMin: (new Date()).toISOString(),
-          // timeMax: (new Date()).toISOString(),
-          showDeleted: false,
-          singleEvents: true,
-          maxResults: 10,
-        };
-
-        this.getSyncEvents(eventParams, this.syncInterval); //(this.syncInterval);
-
+          this.getCalendarEventsByRange(timeMin, timeMax);
+        }
       },
       /**
        * Signs out from google account.
+       * @returns {void}
        */
       signOut: function() {
         const auth2 = gapi.auth2.getAuthInstance();
@@ -100,26 +82,31 @@
         });
       },
       /**
+       * Makes "incremental synchronization" of calendar data.
        * 
-       * 
+       * @params {object} eventParams - 
+       * @params {number} syncInterval - the synchronization interval.
+       * @returns {void}
+       * @see {@link https://developers.google.com/calendar/v3/sync} for further information.
        */
       getSyncEvents: async function(eventParams, syncInterval) {
-        // debugger;
+        // Performs initial full sync.
         const response = await this.getCalendarEvents(eventParams);
         this.events = response.result.items;
         if (response.result.nextSyncToken) this.setSyncToken(response.result.nextSyncToken);
 
-        // The result of this list request contain only entries that have changed.
+        // Performs incremental sync.
         const getIncrementalSync = async () => {
           try {
             const syncToken = this.getSyncToken();
             const response = await this.getCalendarEvents({
+              ...eventParams,
               ...(syncToken) && { nextSyncToken: syncToken },
-              singleEvents: true,
-              maxResults: 10,
             });
             if (response.result.nextSyncToken) this.setSyncToken(response.result.nextSyncToken);
+            this.events = response.result.items;
           } catch(error) {
+            console.log(error);
             clearInterval(intervalId);
             this.getSyncEvents(eventParams, syncInterval);
           } 
@@ -131,9 +118,9 @@
        * Retrieves calendar events in the specified range
        * 
        * @params {object} params the event params
+       * @returns {Promise} promise containing calendar events
        */
       getCalendarEvents: function(params) {
-        console.log("params: ", params);
         return gapi.client.calendar.events.list({
           ...params
         });
@@ -151,11 +138,31 @@
        * Persists sync token in local storage
        * 
        * @params {string} sync token to be persisted
+       * @returns {void}
        */
       setSyncToken: function(syncToken){
         if (!syncToken) return;
         window.localStorage.setItem('nextSyncToken', syncToken);
       },
+      /**
+       * Get google calendar events by range
+       * 
+       * @params {number} timeMin - starting point
+       * @params {number} timeMax - ending point
+       * @returns {void}
+       */
+      getCalendarEventsByRange: function(timeMin = null, timeMax = null){
+        this.getSyncEvents({
+          calendarId: 'primary',
+          timeMin: timeMin || (new Date()).toISOString(),
+          ...(timeMax) && { timeMax },
+          showDeleted: false,
+          singleEvents: true,
+          maxResults: 10,
+        }, this.syncInterval);
+
+        return;
+      }
     }
   }
 </script>
