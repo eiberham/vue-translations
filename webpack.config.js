@@ -49,12 +49,19 @@ module.exports = {
                 test: /\.s?css$/,
                 use: [
                     "style-loader",
-                    MiniCssExtractPlugin.loader,
+                    {
+                        loader: MiniCssExtractPlugin.loader,
+                        options: {
+                            esModule: false,
+                        },
+                    },
                     "css-loader",
                     {
                         loader: "postcss-loader",
                         options: {
-                            plugins: () => [autoprefixer()],
+                            postcssOptions: {
+                                plugins: () => [autoprefixer()]
+                            }
                         },
                     },
                     "sass-loader",

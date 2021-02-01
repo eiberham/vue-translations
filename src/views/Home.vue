@@ -3,17 +3,22 @@
     <!-- <img class="logo" src="../assets/logo.png" alt="logo" /> -->
 
     <h1>{{ $t('views.home.helloWorld') }}</h1>
-    
+
     <button class="button" v-if="!signedIn" type="button" @click="signIn">Sign In</button>
     <a v-else href="#" @click="signOut">Sign out</a> 
 
     <section v-if="signedIn" class="events">
       <ul>
-        <li v-for="event in events" :key="event.id" style="list-style: none; margin: 8px 0; background: #f2f2f2; border-radius: 8px; padding: 1rem;">
+        <li v-for="event in events" :key="event.id" class="item">
           <div>
-            <strong>{{ event.summary }}</strong>
-            <p>{{ event.description }}</p>
-            <span>from: {{ new Date(event.start.dateTime).toISOString() }} to {{ new Date(event.end.dateTime).toISOString() }}</span>
+            <span class="summary">{{ event.summary }}</span>
+            <p class="description">
+              {{ event.description }}
+            </p>
+            <span>
+              From: {{ new Date(event.start.dateTime)  }} 
+              To: {{ new Date(event.end.dateTime) }}
+            </span>
           </div>
         </li>
       </ul>
@@ -99,6 +104,7 @@
         const getIncrementalSync = async () => {
           try {
             const syncToken = this.getSyncToken();
+            if (typeof eventParams.showDeleted !== 'undefined') delete eventParams.showDeleted;
             const response = await this.getCalendarEvents({
               ...eventParams,
               ...(syncToken) && { nextSyncToken: syncToken },
@@ -166,3 +172,30 @@
     }
   }
 </script>
+
+<style lang="css" scoped>
+
+  * {
+    box-sizing: border-box;
+    font-family: 'Roboto', sans-serif;
+  }
+
+  .events ul { padding: 0; }
+
+  .events li.item {
+    background: #2583C3; 
+    border-radius: 8px; 
+    color: #fff;
+    list-style: none; 
+    margin: 8px 0; 
+    padding: 1rem;
+  }
+
+  .events li.item .summary {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+
+</style>
